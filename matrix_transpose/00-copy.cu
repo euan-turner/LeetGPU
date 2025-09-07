@@ -1,0 +1,85 @@
+#include <cuda_runtime.h>
+#include <cstdlib>
+#include <cstdio>
+
+// baseline, transpose cannot beat a simple copy
+
+__global__ void matrix_copy_kernel(const float* input, float* output, int rows, int cols) {
+    size_t x = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x < cols && y < rows) {
+        output[y * cols + x] = input[y * cols + x];
+    }
+}
+
+extern "C" void solve(const float* input, float* output, int rows, int cols) {
+  cudaMemcpy(output, input, rows * cols * sizeof(float), cudaMemcpyDeviceToDevice);
+    size_t BLOCK_SIZE = 16;
+    dim3 threadsPerBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 blocksPerGrid((cols + BLOCK_SIZE - 1) / BLOCK_SIZE,
+                       (rows + BLOCK_SIZE - 1) / BLOCK_SIZE);
+
+    matrix_copy_kernel<<<blocksPerGrid, threadsPerBlock>>>(input, output, rows, cols);
+    cudaDeviceSynchronize();
+}
+
+// Host-side correctness checker
+bool check_copy(const float* input, const float* output, int rows, int cols) {
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            float expected = input[r * cols + c];
+            float got = output[r * cols + c];
+            if (expected != got) {
+                printf("Mismatch at input[%d][%d]: expected %f, got %f\n",
+                       r, c, expected, got);
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+int main() {
+    int rows = 256;
+    int cols = 256;
+    size_t size = rows * cols * sizeof(float);
+
+    // Host memory
+    float* h_input  = (float*)malloc(size);
+    float* h_output = (float*)malloc(rows * cols * sizeof(float));
+
+    // Initialize input matrix with some values
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            h_input[r * cols + c] = static_cast<float>(r * cols + c + 1);
+        }
+    }
+
+    // Device memory
+    float* d_input;
+    float* d_output;
+    cudaMalloc(&d_input, size);
+    cudaMalloc(&d_output, rows * cols * sizeof(float));
+
+    // Copy input to device
+    cudaMemcpy(d_input, h_input, size, cudaMemcpyHostToDevice);
+
+    // Launch transpose
+    solve(d_input, d_output, rows, cols);
+
+    // Copy result back
+    cudaMemcpy(h_output, d_output, rows * cols * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Check correctness
+    bool correct = check_copy(h_input, h_output, rows, cols);
+
+    // Cleanup
+    cudaFree(d_input);
+    cudaFree(d_output);
+    free(h_input);
+    free(h_output);
+
+    // if (!correct) return -1;
+    return 0;
+}
