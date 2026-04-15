@@ -1,4 +1,3 @@
 #pragma once
 
-// TODO: Define the solve() signature for this problem.
-// void solve(...);
+void solve(const float* input, float* output, int N);

@@ -81,7 +81,7 @@ cat > "$DIR/test_${PROBLEM}.cu" << 'TESTEOF'
   std::fprintf(stderr,"cuRAND error: %d\n", int(s)); std::abort(); } } while(0)
 
 // TODO: Declare CPU reference function (defined in cpu_*_ref.cu).
-// void cpu_<problem>_ref(...);
+// void cpu_${PROBLEM}_ref(...);
 
 struct CaseResult {
     const char* name;
@@ -91,10 +91,10 @@ struct CaseResult {
 };
 
 // TODO: Define a config struct for benchmark cases.
-// struct BenchCfg {
-//     const char* name;
-//     // problem-specific dimensions...
-// };
+struct BenchCfg {
+    const char* name;
+    // TODO: problem-specific dimensions
+};
 
 static void fill_random_device_uniform(float* dptr, size_t n, unsigned long long seed)
 {
@@ -105,35 +105,41 @@ static void fill_random_device_uniform(float* dptr, size_t n, unsigned long long
     CURAND_CHECK(curandDestroyGenerator(gen));
 }
 
-// TODO: Implement check_correctness().
-// static bool check_correctness(...) {
-//     // 1. Copy device inputs to host
-//     // 2. Run CPU reference
-//     // 3. Run GPU solve()
-//     // 4. Copy device output to host
-//     // 5. Compare element-wise (atol=1e-5, rtol=1e-5)
-//     return true;
-// }
+// TODO: Adapt arguments to match solve() signature.
+static bool check_correctness(/* device ptrs, dims */) {
+    // 1. Copy device inputs to host
+    // 2. Run CPU reference
+    // 3. Run GPU solve()
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // 4. Copy device output to host
+    // 5. Compare element-wise
+    // const float atol = 1e-5f, rtol = 1e-5f;
+    // for (size_t i=0;i<total;++i) {
+    //     float a = out[i], b = ref[i];
+    //     if (!std::isfinite(a) || std::fabs(a - b) > atol + rtol * std::fabs(b)) return false;
+    // }
+    return true;
+}
 
-// TODO: Implement time_kernel().
-// static float time_kernel(..., int warmup, int iters) {
-//     for (int i=0;i<warmup;++i) solve(...);
-//     CUDA_CHECK(cudaDeviceSynchronize());
-//
-//     cudaEvent_t start, stop;
-//     CUDA_CHECK(cudaEventCreate(&start));
-//     CUDA_CHECK(cudaEventCreate(&stop));
-//     CUDA_CHECK(cudaEventRecord(start));
-//     for (int i=0;i<iters;++i) solve(...);
-//     CUDA_CHECK(cudaEventRecord(stop));
-//     CUDA_CHECK(cudaEventSynchronize(stop));
-//
-//     float ms=0.f;
-//     CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));
-//     CUDA_CHECK(cudaEventDestroy(start));
-//     CUDA_CHECK(cudaEventDestroy(stop));
-//     return ms / (float)iters;
-// }
+// TODO: Adapt arguments to match solve() signature.
+static float time_kernel(/* device ptrs, dims, */ int warmup, int iters) {
+    // for (int i=0;i<warmup;++i) solve(...);
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    cudaEvent_t start, stop;
+    CUDA_CHECK(cudaEventCreate(&start));
+    CUDA_CHECK(cudaEventCreate(&stop));
+    CUDA_CHECK(cudaEventRecord(start));
+    // for (int i=0;i<iters;++i) solve(...);
+    CUDA_CHECK(cudaEventRecord(stop));
+    CUDA_CHECK(cudaEventSynchronize(stop));
+
+    float ms=0.f;
+    CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+    return ms / (float)iters;
+}
 
 int main() {
     const int warmup = 5;
@@ -141,19 +147,37 @@ int main() {
     const unsigned long long seed_all = 42ULL;
 
     // TODO: Define benchmark configs.
-    // std::vector<BenchCfg> cfgs = { ... };
+    std::vector<BenchCfg> cfgs = {
+        // {"case name", ...dims...},
+    };
 
     std::vector<CaseResult> results;
 
-    // TODO: Main benchmark loop.
-    // for (const auto& cfg : cfgs) {
-    //     // 1. Allocate device memory
-    //     // 2. Fill with random data
-    //     // 3. Check correctness
-    //     // 4. Time kernel
-    //     // 5. Print throughput / bandwidth
-    //     // 6. Free device memory
-    // }
+    for (const auto& cfg : cfgs) {
+        // TODO: Compute sizes from cfg dimensions.
+        // size_t in_elems = ...;
+        // size_t out_elems = ...;
+
+        // 1. Allocate device memory
+        // float *dX=nullptr, *dY=nullptr;
+        // CUDA_CHECK(cudaMalloc(&dX, in_elems*sizeof(float)));
+        // CUDA_CHECK(cudaMalloc(&dY, out_elems*sizeof(float)));
+
+        // 2. Fill with random data
+        // fill_random_device_uniform(dX, in_elems, seed_all);
+
+        // 3. Check correctness
+        // bool ok = check_correctness(...);
+        // results.push_back({cfg.name, ok, false, ok ? "" : "mismatch vs CPU reference"});
+
+        // 4. Time kernel
+        // float avg_ms = time_kernel(..., warmup, iters);
+        // std::printf("\n==== Benchmark: %s ====\n", cfg.name);
+        // std::printf("Avg time per iter: %.3f ms\n", avg_ms);
+
+        // 5. Free device memory
+        // cudaFree(dX); cudaFree(dY);
+    }
 
     std::printf("\n==== Summary ====\n");
     int pass_cnt = 0;
